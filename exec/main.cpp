@@ -47,5 +47,7 @@ int main() {
     std::string result(out.begin(), out.end());
     std::println("Message: {}", result);
 
+    //uint64_t random_number = CryptoRandom::generate<uint64_t>();
+    //std::println("Random number = {}", random_number);
     return 0;
 }
