@@ -70,14 +70,8 @@ constexpr std::array<uint8_t, 256> sboxinv = {
     0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
 
-#define FE(x)  (((x) << 1) ^ ((((x)>>7) & 1) * 0x1b)) // same as rj_xtime
-#define FD(x)  (((x) >> 1) ^ (((x) & 1) ? 0x8d : 0))
-
 constexpr uint8_t xtime_forward(uint8_t x) {
     return (x << 1) ^ (((x >> 7) & 1) * 0x1b);
-}
-inline unsigned char rj_xtime(unsigned char x) {
-    return (x & 0x80) ? ((x << 1) ^ 0x1b) : (x << 1);
 }
 void sub_bytes(std::span<uint8_t, 16> block) {
     for (uint8_t i = 0; i < 16; i++) {
