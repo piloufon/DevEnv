@@ -1,6 +1,5 @@
 #pragma once
 #include <span>
-#include <atomic>
 #include <mutex>
 #include "../../include/utils/SafeArray.h"
 
@@ -18,7 +17,7 @@ private:
 	using counter_t = std::conditional_t<N == 12, uint32_t, uint64_t>;
 
 	SafeArray<RANDOM_BYTES> m_random_part = {};
-	std::atomic<counter_t> m_incremental_part = 0;
+	counter_t m_incremental_part = 0;
 
 	std::mutex m_mtx;
 };
