@@ -140,10 +140,10 @@ void mix_columns(std::span<uint8_t, 16> block) {
 
         e = a ^ b ^ c ^ d;
 
-        block[i] ^= e ^ rj_xtime(a ^ b);
-        block[i + 1] ^= e ^ rj_xtime(b ^ c);
-        block[i + 2] ^= e ^ rj_xtime(c ^ d);
-        block[i + 3] ^= e ^ rj_xtime(d ^ a);
+        block[i] ^= e ^ xtime_forward(a ^ b);
+        block[i + 1] ^= e ^ xtime_forward(b ^ c);
+        block[i + 2] ^= e ^ xtime_forward(c ^ d);
+        block[i + 3] ^= e ^ xtime_forward(d ^ a);
     }
 }
 void mix_columns_inv(std::span<uint8_t, 16> block) {
@@ -156,13 +156,13 @@ void mix_columns_inv(std::span<uint8_t, 16> block) {
         d = block[i + 3];
 
         e = a ^ b ^ c ^ d;
-        z = rj_xtime(e);
-        x = e ^ rj_xtime(rj_xtime(z ^ a ^ c));  y = e ^ rj_xtime(rj_xtime(z ^ b ^ d));
+        z = xtime_forward(e);
+        x = e ^ xtime_forward(xtime_forward(z ^ a ^ c));  y = e ^ xtime_forward(xtime_forward(z ^ b ^ d));
 
-        block[i] ^= x ^ rj_xtime(a ^ b);
-        block[i + 1] ^= y ^ rj_xtime(b ^ c);
-        block[i + 2] ^= x ^ rj_xtime(c ^ d);
-        block[i + 3] ^= y ^ rj_xtime(d ^ a);
+        block[i] ^= x ^ xtime_forward(a ^ b);
+        block[i + 1] ^= y ^ xtime_forward(b ^ c);
+        block[i + 2] ^= x ^ xtime_forward(c ^ d);
+        block[i + 3] ^= y ^ xtime_forward(d ^ a);
     }
 }
 
