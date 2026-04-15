@@ -22,5 +22,3 @@ private:
 
 	std::mutex m_mtx;
 };
-
-
