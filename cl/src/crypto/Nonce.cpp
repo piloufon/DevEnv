@@ -1,6 +1,6 @@
-#include "Nonce.h"
 #include <memory>
 #include "../../include/crypto/CryptoRandom.h"
+#include "../../include/crypto/Nonce.h"
 
 template <size_t N>
 	requires (N == 12 || N == 24)
