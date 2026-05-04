@@ -1,5 +1,9 @@
 #include "crypto/AES.h"
+#include "../../include/utils/MathsOperation.h"
+#include "../../include/utils/CPUFeatures.h"
 #include <memory>
+#include <immintrin.h>
+
 
 constexpr std::array<uint8_t, 256> sbox = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5,
@@ -70,20 +74,15 @@ constexpr std::array<uint8_t, 256> sboxinv = {
     0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
 
-constexpr uint8_t xtime_forward(uint8_t x) {
+static inline uint8_t xtime_forward(uint8_t x) {
     return (x << 1) ^ (((x >> 7) & 1) * 0x1b);
 }
-void sub_bytes(std::span<uint8_t, 16> block) {
+static inline void sub_bytes(std::span<uint8_t, 16> block) {
     for (uint8_t i = 0; i < 16; i++) {
         block[i] = sbox[block[i]];
     }
 }
-void sub_bytes_inv(std::span<uint8_t, 16> block) {
-    for (uint8_t i = 0; i < 16; i++) {
-        block[i] = sboxinv[block[i]];
-    }
-}
-void shift_rows(std::span<uint8_t, 16> block) {
+static inline void shift_rows(std::span<uint8_t, 16> block) {
     unsigned char i, j, k, l;
 
     i = block[1];
@@ -106,7 +105,29 @@ void shift_rows(std::span<uint8_t, 16> block) {
     block[14] = block[6];
     block[6] = l;
 }
-void shift_rows_inv(std::span<uint8_t, 16> block) {
+static inline void mix_columns(std::span<uint8_t, 16> block) {
+    unsigned char i, a, b, c, d, e;
+
+    for (i = 0; i < 16; i += 4) {
+        a = block[i];
+        b = block[i + 1];
+        c = block[i + 2];
+        d = block[i + 3];
+
+        e = a ^ b ^ c ^ d;
+
+        block[i] ^= e ^ xtime_forward(a ^ b);
+        block[i + 1] ^= e ^ xtime_forward(b ^ c);
+        block[i + 2] ^= e ^ xtime_forward(c ^ d);
+        block[i + 3] ^= e ^ xtime_forward(d ^ a);
+    }
+}
+static inline void sub_bytes_inv(std::span<uint8_t, 16> block) {
+    for (uint8_t i = 0; i < 16; i++) {
+        block[i] = sboxinv[block[i]];
+    }
+}
+static inline void shift_rows_inv(std::span<uint8_t, 16> block) {
     unsigned char i, j, k, l;
 
     i = block[1];
@@ -129,24 +150,7 @@ void shift_rows_inv(std::span<uint8_t, 16> block) {
     block[6] = block[14];
     block[14] = l;
 }
-void mix_columns(std::span<uint8_t, 16> block) {
-    unsigned char i, a, b, c, d, e;
-
-    for (i = 0; i < 16; i += 4) {
-        a = block[i];
-        b = block[i + 1];
-        c = block[i + 2];
-        d = block[i + 3];
-
-        e = a ^ b ^ c ^ d;
-
-        block[i] ^= e ^ xtime_forward(a ^ b);
-        block[i + 1] ^= e ^ xtime_forward(b ^ c);
-        block[i + 2] ^= e ^ xtime_forward(c ^ d);
-        block[i + 3] ^= e ^ xtime_forward(d ^ a);
-    }
-}
-void mix_columns_inv(std::span<uint8_t, 16> block) {
+static inline void mix_columns_inv(std::span<uint8_t, 16> block) {
     unsigned char i, a, b, c, d, e, x, y, z;
 
     for (i = 0; i < 16; i += 4) {
@@ -166,40 +170,25 @@ void mix_columns_inv(std::span<uint8_t, 16> block) {
     }
 }
 
+
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
-inline void AES<N>::m_encrypt(std::span<uint8_t, 16> block) {
-    add_round_key(block, 0);
+AES<N>::AES(const Key& key) {
+    key_expansion(key);
 
-    for (size_t round = 1; round < NR; ++round) {
-        sub_bytes(block);
-        shift_rows(block);
-        mix_columns(block);
-        add_round_key(block, round);
-    }
-
-    sub_bytes(block);
-    shift_rows(block);
-    add_round_key(block, NR);
+    key_expansion_inv();
 }
 
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
-void AES<N>::m_decrypt(std::span<uint8_t, 16> block) {
-    add_round_key(block, NR);
-
-    for (size_t round = NR - 1; round >= 1; --round) {
-        shift_rows_inv(block);
-        sub_bytes_inv(block);
-        add_round_key(block, round);
-        mix_columns_inv(block);
+void AES<N>::key_expansion_inv() {
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
+        for (size_t i = 1; i < NR; ++i) {
+            __m128i rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + i * 16));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(m_rkey_inv.data() + i * 16), _mm_aesimc_si128(rk));
+        }
     }
-
-    shift_rows_inv(block);
-    sub_bytes_inv(block);
-    add_round_key(block, 0);
 }
-
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 void AES<N>::key_expansion(const Key& key) {
@@ -218,9 +207,9 @@ void AES<N>::key_expansion(const Key& key) {
 
     for (size_t i = 0; i < NK; ++i) {
         W[i] = (uint32_t(key[4 * i]) << 24)
-            | (uint32_t(key[4 * i + 1]) << 16)
-            | (uint32_t(key[4 * i + 2]) << 8)
-            | (uint32_t(key[4 * i + 3]));
+             | (uint32_t(key[4 * i + 1]) << 16)
+             | (uint32_t(key[4 * i + 2]) << 8)
+             | (uint32_t(key[4 * i + 3]));
     }
 
     uint8_t rcon = 0x01;
@@ -249,13 +238,142 @@ void AES<N>::key_expansion(const Key& key) {
     }
 }
 
+
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 void AES<N>::add_round_key(std::span<uint8_t, 16> block, size_t round) {
     size_t offset = round * 16;
-    for (size_t i = 0; i < 16; ++i)
-        block[i] ^= m_rkey[offset + i];
+
+    MathsOperation::cl_xor(block, std::span<const uint8_t>(m_rkey).subspan(offset).first<16>(), block);
 }
+
+
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+void AES<N>::cipher(std::span<uint8_t, 16> block) {
+    add_round_key(block, 0);
+
+    for (size_t round = 1; round < NR; ++round) {
+        sub_bytes(block);
+        shift_rows(block);
+        mix_columns(block);
+        add_round_key(block, round);
+    }
+
+    sub_bytes(block);
+    shift_rows(block);
+    add_round_key(block, NR);
+}
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+void AES<N>::cipher_aesni(std::span<uint8_t, BLOCKS * 16> block) {
+    std::array<__m128i, BLOCKS> states;
+
+    for (size_t b = 0; b < BLOCKS; ++b) {
+        states[b] = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + b * 16));
+    }
+
+    __m128i rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data()));
+    for (auto& s : states) {
+        s = _mm_xor_si128(s, rk);
+    }
+
+    for (size_t i = 1; i < NR; ++i) {
+        rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + i * 16));
+        for (auto& s : states) {
+            s = _mm_aesenc_si128(s, rk);
+        }
+    }
+
+    rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + NR * 16));
+    for (auto& s : states) {
+        s = _mm_aesenclast_si128(s, rk);
+    }
+
+    for (size_t b = 0; b < BLOCKS; ++b) {
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(block.data() + b * 16), states[b]);
+    }
+}
+
+
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+void AES<N>::cipher_inv(std::span<uint8_t, 16> block) {
+    add_round_key(block, NR);
+
+    for (size_t round = NR - 1; round >= 1; --round) {
+        shift_rows_inv(block);
+        sub_bytes_inv(block);
+        add_round_key(block, round);
+        mix_columns_inv(block);
+    }
+
+    shift_rows_inv(block);
+    sub_bytes_inv(block);
+    add_round_key(block, 0);
+}
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+void AES<N>::cipher_aesni_inv(std::span<uint8_t, BLOCKS * 16> block) {
+    std::array<__m128i, BLOCKS> states;
+
+    for (size_t b = 0; b < BLOCKS; ++b) {
+        states[b] = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + b * 16));
+    }
+
+    __m128i rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + NR * 16));
+    for (auto& s : states) {
+        s = _mm_xor_si128(s, rk);
+    }
+
+    for (size_t i = NR - 1; i > 0; --i) {
+        __m128i rk_dec = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey_inv.data() + i * 16));
+        for (auto& s : states) {
+            s = _mm_aesdec_si128(s, rk_dec);
+        }
+    }
+
+    rk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data()));
+    for (auto& s : states) {
+        s = _mm_aesdeclast_si128(s, rk);
+    }
+
+    for (size_t b = 0; b < BLOCKS; ++b) {
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(block.data() + b * 16), states[b]);
+    }
+}
+
+
+
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+void AES<N>::encrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
+        cipher_aesni<BLOCKS>(block);
+    }
+    else [[unlikely]] {
+        for (uint8_t i = 0; i < BLOCKS; i++) {
+            cipher(block.subspan(16 * i).first<16>());
+        }
+    }
+}
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+void AES<N>::decrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
+        cipher_aesni_inv<BLOCKS>(block);
+    }
+    else [[unlikely]] {
+        for (uint8_t i = 0; i < BLOCKS; i++) {
+            cipher_inv(block.subspan(16 * i).first<16>());
+        }
+    }
+}
+
 
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
@@ -263,25 +381,55 @@ void AES<N>::encrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
     size_t numBlocks = in.size() / 16;
     size_t remainder = in.size() % 16;
 
+    out.clear();
     out.resize(numBlocks * 16 + (remainder ? 16 : 0));
+    
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
+        size_t i = 0;
 
-    for (size_t i = 0; i < numBlocks; ++i) {
-        std::array<uint8_t, 16> block;
-        std::memcpy(block.data(), in.data() + i * 16, 16);
-        m_encrypt(block);
-        std::memcpy(out.data() + i * 16, block.data(), 16);
+        for (; i + 8 <= numBlocks; i += 8) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 128);
+            cipher_aesni<8>(std::span<uint8_t, 128>(out.data() + i * 16, 128));
+        }
+        for (; i + 4 <= numBlocks; i += 4) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 64);
+            cipher_aesni<4>(std::span<uint8_t, 64>(out.data() + i * 16, 64));
+        }
+        for (; i + 2 <= numBlocks; i += 2) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 32);
+            cipher_aesni<2>(std::span<uint8_t, 32>(out.data() + i * 16, 32));
+        }
+        for (; i < numBlocks; ++i) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 16);
+            cipher_aesni<1>(std::span<uint8_t, 16>(out.data() + i * 16, 16));
+        }
+
+        if (remainder) {
+            size_t offset = numBlocks * 16;
+            uint8_t padValue = static_cast<uint8_t>(16 - remainder);
+            std::memcpy(out.data() + offset, in.data() + offset, remainder);
+            std::memset(out.data() + offset + remainder, padValue, 16 - remainder);
+            cipher_aesni<1>(std::span<uint8_t, 16>(out.data() + offset, 16));
+        }
+
+        return;
     }
+    else {
+        for (size_t i = 0; i < numBlocks; ++i) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 16);
+            cipher(std::span<uint8_t, 16>(out.data() + i * 16, 16));
+        }
+        if (remainder) {
+            size_t offset = numBlocks * 16;
+            uint8_t padValue = static_cast<uint8_t>(16 - remainder);
 
-    if (remainder) {
-        std::array<uint8_t, 16> block = { 0 };
-        uint8_t padValue = static_cast<uint8_t>(16 - remainder);
-        std::memcpy(block.data(), in.data() + numBlocks * 16, remainder);
-        std::memset(block.data() + remainder, padValue, 16 - remainder);
-        m_encrypt(block);
-        std::memcpy(out.data() + numBlocks * 16, block.data(), 16);
+            std::memcpy(out.data() + offset, in.data() + offset, remainder);
+            std::memset(out.data() + offset + remainder, padValue, 16 - remainder);
+
+            cipher(std::span<uint8_t, 16>(out.data() + offset, 16));
+        }
     }
 }
-
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
@@ -289,13 +437,37 @@ bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
         return false;
 
     size_t numBlocks = in.size() / 16;
+
+    out.clear();
     out.resize(in.size());
 
-    for (size_t i = 0; i < numBlocks; ++i) {
-        std::array<uint8_t, 16> block;
-        std::memcpy(block.data(), in.data() + i * 16, 16);
-        m_decrypt(block);
-        std::memcpy(out.data() + i * 16, block.data(), 16);
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
+        size_t i = 0;
+
+        for (; i + 8 <= numBlocks; i += 8) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 128);
+            cipher_aesni_inv<8>(std::span<uint8_t, 128>(out.data() + i * 16, 128));
+        }
+        for (; i + 4 <= numBlocks; i += 4) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 64);
+            cipher_aesni_inv<4>(std::span<uint8_t, 64>(out.data() + i * 16, 64));
+        }
+        for (; i + 2 <= numBlocks; i += 2) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 32);
+            cipher_aesni_inv<2>(std::span<uint8_t, 32>(out.data() + i * 16, 32));
+        }
+        for (; i < numBlocks; ++i) {
+            std::memcpy(out.data() + i * 16, in.data() + i * 16, 16);
+            cipher_aesni_inv<1>(std::span<uint8_t, 16>(out.data() + i * 16, 16));
+        }
+    }
+    else [[unlikely]] {
+        for (size_t i = 0; i < numBlocks; ++i) {
+            std::array<uint8_t, 16> block;
+            std::memcpy(block.data(), in.data() + i * 16, 16);
+            cipher_inv(block);
+            std::memcpy(out.data() + i * 16, block.data(), 16);
+        }
     }
 
 
@@ -312,6 +484,69 @@ bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
     return true;
 }
 
+
+
+
 template class AES<128>;
 template class AES<192>;
 template class AES<256>;
+
+template void AES<128>::cipher_aesni<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<128>::cipher_aesni<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<128>::cipher_aesni<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<128>::cipher_aesni<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<192>::cipher_aesni<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<192>::cipher_aesni<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<192>::cipher_aesni<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<192>::cipher_aesni<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<256>::cipher_aesni<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<256>::cipher_aesni<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<256>::cipher_aesni<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<256>::cipher_aesni<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<128>::cipher_aesni_inv<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<128>::cipher_aesni_inv<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<128>::cipher_aesni_inv<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<128>::cipher_aesni_inv<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<192>::cipher_aesni_inv<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<192>::cipher_aesni_inv<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<192>::cipher_aesni_inv<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<192>::cipher_aesni_inv<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<256>::cipher_aesni_inv<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<256>::cipher_aesni_inv<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<256>::cipher_aesni_inv<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<256>::cipher_aesni_inv<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<128>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<128>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<128>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<128>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<192>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<192>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<192>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<192>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<256>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<256>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<256>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<256>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<128>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<128>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<128>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<128>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<192>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<192>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<192>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<192>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+
+template void AES<256>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
+template void AES<256>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
+template void AES<256>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
+template void AES<256>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
