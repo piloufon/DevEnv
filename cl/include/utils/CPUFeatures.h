@@ -7,6 +7,7 @@ public:
     static uint32_t logical_cores() { return m_cpu.logical_cores; }
 
     static bool has_aes_ni() { return m_cpu.aes_ni; }
+    static bool has_vaes() { return m_cpu.vaes; }
     static bool has_pclmul() { return m_cpu.pclmul; }
 
     static bool has_sse() { return m_cpu.sse; }
@@ -40,6 +41,7 @@ private:
         bool avx512f = false;
         bool avx512bw = false;
         bool avx512dq = false;
+        bool vaes = false;
     };
 
     static CPU detect();
