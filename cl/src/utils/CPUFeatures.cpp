@@ -5,7 +5,7 @@
 #include <intrin.h>
 static void cpuid(int info[4], int leaf) { __cpuid(info, leaf); }
 static void cpuidex(int info[4], int leaf, int sub) { __cpuidex(info, leaf, sub); }
-#else // TODO : #endif instead
+#else
 #include <cpuid.h>
 static void cpuid(int info[4], int leaf) {
     __cpuid(leaf, info[0], info[1], info[2], info[3]);
@@ -44,6 +44,7 @@ CPUFeatures::CPU CPUFeatures::detect() {
         f.avx512f = (info[1] & (1 << 16)) != 0;
         f.avx512dq = (info[1] & (1 << 17)) != 0;
         f.avx512bw = (info[1] & (1 << 30)) != 0;
+        f.vaes = (info[2] & (1 << 9)) != 0;
     }
 
     f.logical_cores = std::thread::hardware_concurrency();
