@@ -39,6 +39,12 @@ private:
     template<size_t BLOCKS>
         requires (BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
     void cipher_vaes512(const uint8_t* in, uint8_t* out);
+    template<size_t BLOCKS>
+        requires (BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
+    void cipher_vaes256_inv(const uint8_t* in, uint8_t* out);    
+    template<size_t BLOCKS>
+        requires (BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
+    void cipher_vaes512_inv(const uint8_t* in, uint8_t* out);
 
     template<size_t BLOCKS>
         requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
