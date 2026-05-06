@@ -238,6 +238,73 @@ void AES<N>::cipher_vaes512(const uint8_t* in, uint8_t* out) {
         _mm512_storeu_si512(reinterpret_cast<__m512i*>(out + q * 64), states[q]);
     }
 }
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+    requires (BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
+void AES<N>::cipher_vaes256_inv(const uint8_t* in, uint8_t* out) {
+    constexpr size_t PAIRS = BLOCKS / 2;
+    std::array<__m256i, PAIRS> states;
+
+    for (size_t p = 0; p < PAIRS; ++p) {
+        states[p] = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(in + p * 32));
+    }
+
+    __m256i rk = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + NR * 16)));
+    for (auto& s : states) {
+        s = _mm256_xor_si256(s, rk);
+    }
+
+    for (size_t i = NR - 1; i > 0; --i) {
+        rk = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey_inv.data() + i * 16)));
+        for (auto& s : states) {
+            s = _mm256_aesdec_epi128(s, rk);
+        }
+    }
+
+    rk = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data())));
+    for (auto& s : states) {
+        s = _mm256_aesdeclast_epi128(s, rk);
+    }
+
+    for (size_t p = 0; p < PAIRS; ++p) {
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + p * 32), states[p]);
+    }
+}
+template<size_t N>
+    requires(N == 128 || N == 192 || N == 256)
+template<size_t BLOCKS>
+    requires (BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
+void AES<N>::cipher_vaes512_inv(const uint8_t* in, uint8_t* out) {
+    constexpr size_t QUADS = BLOCKS / 4;
+    std::array<__m512i, QUADS> states;
+
+    for (size_t q = 0; q < QUADS; ++q) {
+        states[q] = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(in + q * 64));
+    }
+
+    __m512i rk = _mm512_broadcast_i32x4(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data() + NR * 16)));
+    for (auto& s : states) {
+        s = _mm512_xor_si512(s, rk);
+    }
+
+    for (size_t i = NR - 1; i > 0; --i) {
+        rk = _mm512_broadcast_i32x4(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey_inv.data() + i * 16)));
+        for (auto& s : states) {
+            s = _mm512_aesdec_epi128(s, rk);
+        }
+    }
+
+    rk = _mm512_broadcast_i32x4(_mm_loadu_si128(reinterpret_cast<const __m128i*>(m_rkey.data())));
+    for (auto& s : states) {
+        s = _mm512_aesdeclast_epi128(s, rk);
+    }
+
+    for (size_t q = 0; q < QUADS; ++q) {
+        _mm512_storeu_si512(reinterpret_cast<__m512i*>(out + q * 64), states[q]);
+    }
+}
+
 
 // ==== Public ====
 template<size_t N>
@@ -330,9 +397,34 @@ bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
 
     out.clear();
     out.resize(in.size());
+    size_t i = 0;
 
+    if (CPUFeatures::has_vaes() && CPUFeatures::has_avx512f()) {
+        for (; i + 16 <= numBlocks; i += 16) {
+            cipher_vaes512_inv<16>(in.data() + i * 16, out.data() + i * 16);
+        }
+        for (; i + 8 <= numBlocks; i += 8) {
+            cipher_vaes512_inv<8>(in.data() + i * 16, out.data() + i * 16);
+        }
+        for (; i + 4 <= numBlocks; i += 4) {
+            cipher_vaes512_inv<4>(in.data() + i * 16, out.data() + i * 16);
+        }
+    }
+    if (CPUFeatures::has_vaes()) {
+        for (; i + 16 <= numBlocks; i += 16) {
+            cipher_vaes256_inv<16>(in.data() + i * 16, out.data() + i * 16);
+        }
+        for (; i + 8 <= numBlocks; i += 8) {
+            cipher_vaes256_inv<8>(in.data() + i * 16, out.data() + i * 16);
+        }
+        for (; i + 4 <= numBlocks; i += 4) {
+            cipher_vaes256_inv<4>(in.data() + i * 16, out.data() + i * 16);
+        }
+        for (; i + 2 <= numBlocks; i += 2) {
+            cipher_vaes256_inv<2>(in.data() + i * 16, out.data() + i * 16);
+        }
+    }
     if (CPUFeatures::has_aes_ni()) [[likely]] {
-        size_t i = 0;
 
         for (; i + 8 <= numBlocks; i += 8) {
             cipher_aesni_inv<8>(in.data() + i * 16, out.data() + i * 16);
@@ -348,7 +440,7 @@ bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
         }
     }
     else [[unlikely]] {
-        for (size_t i = 0; i < numBlocks; ++i) {
+        for (; i < numBlocks; ++i) {
             std::array<uint8_t, 16> block;
             std::memcpy(block.data(), in.data() + i * 16, 16);
             cipher_inv(block);
@@ -394,6 +486,11 @@ template<size_t N>
 template<size_t BLOCKS>
     requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
 void AES<N>::decrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
+    if constexpr (BLOCKS >= 2) {
+        if (CPUFeatures::has_vaes()) {
+            cipher_vaes256_inv<BLOCKS>(block.data(), block.data());
+        }
+    }
     if (CPUFeatures::has_aes_ni()) [[likely]] {
         cipher_aesni_inv<BLOCKS>(block.data(), block.data());
     }
