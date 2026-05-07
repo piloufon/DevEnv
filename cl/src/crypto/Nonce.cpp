@@ -27,12 +27,12 @@ bool Nonce<N>::GetNonce(std::span<uint8_t, N> out, uint64_t allocation) {
 		else {
 			m_incremental_part += allocation;
 		}
+	}
 
-		std::memcpy(out.data(), m_random_part.data(), RANDOM_BYTES);
+	std::memcpy(out.data(), m_random_part.data(), RANDOM_BYTES);
 
-		for (uint8_t i = 0; i < COUNTER_BYTES; i++) {
-			out[RANDOM_BYTES + i] = (m_incremental_part >> ((COUNTER_BYTES - 1 - i) * 8)) & 0xFF;
-		}
+	for (uint8_t i = 0; i < COUNTER_BYTES; i++) {
+		out[RANDOM_BYTES + i] = (m_incremental_part >> ((COUNTER_BYTES - 1 - i) * 8)) & 0xFF;
 	}
 
 	return true;
