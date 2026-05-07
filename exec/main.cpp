@@ -1,6 +1,13 @@
-#include "../cl/include/AES.h"
-#include "../cl/include/test/AES_ECB.h"
+#include "../cl/include/crypto/AES.h"
+#include "../cl/include/crypto/CTR.h"
+#include "../cl/include/crypto/CryptoRandom.h"
+#include "../cl/include/crypto/test/AES_ECB.h"
+#include "../cl/include/crypto/test/AES_CTR.h"
+#include "../cl/include/crypto/Nonce.h"
+#include "../cl/include/utils/CPUFeatures.h"
+#include "../cl/include/utils/MathsOperation.h"
 #include <print>
+#include <chrono>
 
 std::string message = "Nam quis nulla. Integer malesuada. In in enim a arcu imperdiet malesuada. Sed vel lectus."
     " Donec odio urna, tempus molestie, porttitor ut, iaculis quis, sem. Phasellus rhoncus. Aenean id metus id v"
@@ -20,34 +27,40 @@ std::string message = "Nam quis nulla. Integer malesuada. In in enim a arcu impe
     ", vitae placerat pede sem sit amet enim.Phasellus et lorem id felis nonummy placerat.Fusce dui leo, imperdi"
     "et in, aliquam sit amet, feugiat eu, orci.Aenean vel massa quis mauris vehicula lacinia.Quisque tincidunt s"
     "celerisque libero.Maecenas libero.Etiam dictum tincidunt diam.Donec ipsum massa, ullamcorper in, auctor et,"
-    " scelerisque sed, est.Suspendisse nisl.Sed convallis magna eu sem.Cras pede libero, dapibus nec, pretium";
+    " scelerisque sed, est.Suspendisse nisl.Sed convallis magna eu sem.Cras pede libero, dapibus nec, pretium"
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; // Add for 2048 + \00
 
 
 int main() {
     if (!testAES()) {
-        std::println("Vector NIST failed !");
+        std::println("Vector NIST for AES (ECB) failed !");
         return -1;
     }
-
-    std::vector<uint8_t> ciphered;
-    std::vector<uint8_t> out;
-    {
-        AES<256>::Key key;
-        std::vector<uint8_t> raw_bytes(message.begin(), message.end());
+    if (!testAESCTR()) {
+        std::println("Vector NIST for AES (CTR) failed !");
+        return -1;
+    }
     
-        AES<256> aes(key);
-        aes.encrypt(raw_bytes, ciphered);
+    std::vector<uint8_t> in(message.begin(), message.end());
+    std::vector<uint8_t> out;
+    
+    SafeArray<12> nonce;
+    
+    CTR<AES<256>>::Key key;
+    CTR<AES<256>> ctr(key);
+    
+    uint64_t iterations = 1'000'000;
+    //uint64_t iterations = 50'000;
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    for (uint64_t i = 0; i < iterations; i++) {
+        ctr.encrypt(in, out, nonce, 0);
     }
-    {
-        AES<256>::Key key;
-        AES<256> aes(key);
-        aes.encrypt(ciphered, out);
-
-    }
-    std::string result(out.begin(), out.end());
-    std::println("Message: {}", result);
-
-    //uint64_t random_number = CryptoRandom::generate<uint64_t>();
-    //std::println("Random number = {}", random_number);
+    auto end = std::chrono::high_resolution_clock::now();
+    uint64_t duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    double average = duration / iterations;
+    
+    std::println("Time taken: {} us", duration / 1'000);
+    std::println("Averge: {:.3f} ns", average);
     return 0;
 }
