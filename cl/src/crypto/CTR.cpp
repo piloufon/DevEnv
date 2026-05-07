@@ -17,6 +17,8 @@ void CTR<CA>::encrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out, st
     out.resize(in.size());
 
     uint64_t i = 0;
+    // 5 times the same code with def is to help inlining/optimizing the code for the compiler, because with a lambda, there is an addition of 350ns on average (x0,5 the performance)
+    // And for template, the indirection add around 100ns to 250ns (x0,70 the perfomance) for the same reason
 #define BATCH 16
     for (; i + BATCH <= num_blocks; i += BATCH) {
         std::memcpy(intermediaire.data(), keystream.data(), 256);
