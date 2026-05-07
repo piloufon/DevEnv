@@ -23,11 +23,11 @@ public:
     bool decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out);
 
     template<size_t BLOCKS = 1>
-        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
     void encrypt_block(std::span<uint8_t, BLOCKS * 16> block);
 
     template<size_t BLOCKS = 1>
-        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
     void decrypt_block(std::span<uint8_t, BLOCKS * 16> block);
 private:
     SafeArray<EXP_KEY_BYTES> m_rkey;
@@ -47,10 +47,10 @@ private:
     void cipher_vaes512_inv(const uint8_t* in, uint8_t* out);
 
     template<size_t BLOCKS>
-        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
     void cipher_aesni(const uint8_t* in, uint8_t* out);
     template<size_t BLOCKS>
-        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+        requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
     void cipher_aesni_inv(const uint8_t* in, uint8_t* out);
 
     void cipher(std::span<uint8_t, 16> block); // Don't really care 

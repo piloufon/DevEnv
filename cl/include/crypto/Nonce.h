@@ -4,7 +4,7 @@
 #include <mutex>
 #include "../../include/utils/SafeArray.h"
 
-template <size_t N>
+template <size_t N = 12>
 	requires (N == 12 || N == 24 /* XChacha20 only */)
 class Nonce {
 public:
