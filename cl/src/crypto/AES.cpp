@@ -105,7 +105,7 @@ void AES<N>::cipher_inv(std::span<uint8_t, 16> block) {
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 template<size_t BLOCKS>
-    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
 void AES<N>::cipher_aesni(const uint8_t* in, uint8_t* out) {
     std::array<__m128i, BLOCKS> states;
 
@@ -137,7 +137,7 @@ void AES<N>::cipher_aesni(const uint8_t* in, uint8_t* out) {
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 template<size_t BLOCKS>
-    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
 void AES<N>::cipher_aesni_inv(const uint8_t* in, uint8_t* out) {
     std::array<__m128i, BLOCKS> states;
 
@@ -465,15 +465,23 @@ bool AES<N>::decrypt(std::span<const uint8_t> in, std::vector<uint8_t>& out) {
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 template<size_t BLOCKS>
-    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
 void AES<N>::encrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
+    if constexpr (BLOCKS >= 4) {
+        if (CPUFeatures::has_vaes() && CPUFeatures::has_avx512f()) {
+            cipher_vaes512<BLOCKS>(block.data(), block.data());
+            return;
+        }
+    }
     if constexpr (BLOCKS >= 2) {
         if (CPUFeatures::has_vaes()) {
             cipher_vaes256<BLOCKS>(block.data(), block.data());
+            return;
         }
     }
-    else if (CPUFeatures::has_aes_ni()) [[likely]] {
+    if (CPUFeatures::has_aes_ni()) [[likely]] {
         cipher_aesni<BLOCKS>(block.data(), block.data());
+        return;
     }
     else [[unlikely]] {
         for (uint8_t i = 0; i < BLOCKS; i++) {
@@ -484,15 +492,23 @@ void AES<N>::encrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
 template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 template<size_t BLOCKS>
-    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8)
+    requires (BLOCKS == 1 || BLOCKS == 2 || BLOCKS == 4 || BLOCKS == 8 || BLOCKS == 16)
 void AES<N>::decrypt_block(std::span<uint8_t, BLOCKS * 16> block) {
+    if constexpr (BLOCKS >= 4) {
+        if (CPUFeatures::has_vaes() && CPUFeatures::has_avx512f()) {
+            cipher_vaes512_inv<BLOCKS>(block.data(), block.data());
+            return;
+        }
+    }
     if constexpr (BLOCKS >= 2) {
         if (CPUFeatures::has_vaes()) {
             cipher_vaes256_inv<BLOCKS>(block.data(), block.data());
+            return;
         }
     }
     if (CPUFeatures::has_aes_ni()) [[likely]] {
         cipher_aesni_inv<BLOCKS>(block.data(), block.data());
+        return;
     }
     else [[unlikely]] {
         for (uint8_t i = 0; i < BLOCKS; i++) {
@@ -514,28 +530,34 @@ template void AES<128>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<128>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<128>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<128>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<128>::encrypt_block<16>(std::span<uint8_t, 16 * 16> block);
 
 template void AES<192>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<192>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<192>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<192>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<192>::encrypt_block<16>(std::span<uint8_t, 16 * 16> block);
 
 template void AES<256>::encrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<256>::encrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<256>::encrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<256>::encrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<256>::encrypt_block<16>(std::span<uint8_t, 16 * 16> block);
 
 template void AES<128>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<128>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<128>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<128>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<128>::decrypt_block<16>(std::span<uint8_t, 16 * 16> block);
 
 template void AES<192>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<192>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<192>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<192>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<192>::decrypt_block<16>(std::span<uint8_t, 16 * 16> block);
 
 template void AES<256>::decrypt_block<1>(std::span<uint8_t, 1 * 16> block);
 template void AES<256>::decrypt_block<2>(std::span<uint8_t, 2 * 16> block);
 template void AES<256>::decrypt_block<4>(std::span<uint8_t, 4 * 16> block);
 template void AES<256>::decrypt_block<8>(std::span<uint8_t, 8 * 16> block);
+template void AES<256>::decrypt_block<16>(std::span<uint8_t, 16 * 16> block);
