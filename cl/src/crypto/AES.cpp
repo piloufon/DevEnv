@@ -10,52 +10,8 @@ template<size_t N>
     requires(N == 128 || N == 192 || N == 256)
 AES<N>::AES(const Key& key) {
     // For key expansion -> m_rkey
-    {
-        auto sub_word = [](uint32_t w) -> uint32_t { // Required for template
-            return (uint32_t(sbox[(w >> 24) & 0xFF]) << 24)
-                | (uint32_t(sbox[(w >> 16) & 0xFF]) << 16)
-                | (uint32_t(sbox[(w >> 8) & 0xFF]) << 8)
-                | (uint32_t(sbox[(w) & 0xFF]));
-            };
+    expand_key<N>(key, m_rkey);
 
-        auto rot_word = [](uint32_t w) -> uint32_t { // Required for template
-            return (w << 8) | (w >> 24);
-            };
-
-        uint32_t W[EXP_KEY_WORDS];
-
-        for (size_t i = 0; i < NK; ++i) {
-            W[i] = (uint32_t(key[4 * i]) << 24)
-                | (uint32_t(key[4 * i + 1]) << 16)
-                | (uint32_t(key[4 * i + 2]) << 8)
-                | (uint32_t(key[4 * i + 3]));
-        }
-
-        uint8_t rcon = 0x01;
-
-        for (size_t i = NK; i < EXP_KEY_WORDS; ++i) {
-            uint32_t temp = W[i - 1];
-
-            if (i % NK == 0) {
-                temp = sub_word(rot_word(temp)) ^ (uint32_t(rcon) << 24);
-                rcon = xtime_forward(rcon);
-            }
-            // AES-256 only
-            else if constexpr (NK == 8) {
-                if (i % NK == 4)
-                    temp = sub_word(temp);
-            }
-
-            W[i] = W[i - NK] ^ temp;
-        }
-
-        for (size_t i = 0; i < EXP_KEY_WORDS; ++i) {
-            m_rkey[4 * i] = (W[i] >> 24) & 0xFF;
-            m_rkey[4 * i + 1] = (W[i] >> 16) & 0xFF;
-            m_rkey[4 * i + 2] = (W[i] >> 8) & 0xFF;
-            m_rkey[4 * i + 3] = (W[i]) & 0xFF;
-        }
-    }
     
     // For key expansion inv -> m_rkey_inv
     if (CPUFeatures::has_aes_ni()) [[likely]] {
