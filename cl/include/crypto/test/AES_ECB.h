@@ -31,7 +31,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes128.encrypt_block(block);
@@ -42,7 +42,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes128.decrypt_block(block);
@@ -78,7 +78,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes192.encrypt_block(block);
@@ -89,7 +89,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes192.decrypt_block(block);
@@ -123,7 +123,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes256.encrypt_block(block);
@@ -134,7 +134,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes256.decrypt_block(block);
@@ -214,7 +214,7 @@ bool  testAES() {
 				}
 
 				AES<128> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = { 0 };
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
@@ -295,7 +295,7 @@ bool  testAES() {
 				}
 
 				AES<192> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = { 0 };
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
@@ -360,7 +360,7 @@ bool  testAES() {
 				}
 
 				AES<256> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = { 0 };
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
@@ -643,7 +643,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes128.encrypt_block(block);
@@ -654,7 +654,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes128.decrypt_block(block);
@@ -804,7 +804,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes128.encrypt_block(block);
@@ -815,7 +815,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes128.decrypt_block(block);
@@ -964,7 +964,7 @@ bool  testAES() {
 
 
 			for (uint8_t i = 0; i < plainTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), plainTexts[i].data(), 16);
 
 				aes128.encrypt_block(block);
@@ -975,7 +975,7 @@ bool  testAES() {
 				}
 			}
 			for (uint8_t i = 0; i < cipherTexts.size(); i++) {
-				std::array<uint8_t, 16> block;
+				std::array<uint8_t, 16> block = { 0 };
 				std::memcpy(block.data(), cipherTexts[i].data(), 16);
 
 				aes128.decrypt_block(block);
@@ -1269,7 +1269,7 @@ bool  testAES() {
 				}
 
 				AES<128> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = { 0 };
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
@@ -1686,7 +1686,7 @@ bool  testAES() {
 				}
 
 				AES<192> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = { 0 };
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
@@ -2232,7 +2232,7 @@ bool  testAES() {
 				}
 
 				AES<256> aes2(k);
-				std::array<uint8_t, 16> block2;
+				std::array<uint8_t, 16> block2 = {0};
 				std::memcpy(block2.data(), cipherTexts[i].data(), 16);
 				aes2.decrypt_block(block2);
 
