@@ -5,6 +5,7 @@
 namespace Filesystem {
 	struct MetaData {
 		uint64_t last_time_modified = 0;
+		// more later
 	};
 	bool file_exist(const std::filesystem::path& file_path);
 	bool directory_exist(const std::filesystem::path& dir_path);
