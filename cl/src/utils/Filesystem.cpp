@@ -2,11 +2,12 @@
 #include <print>
 #include <algorithm>
 #ifdef _WIN32
+// useless but if I forgot, then here it is
 #define NOMINMAX
 #include <Windows.h>
 #endif
 
-#include <chrono>
+// TODO : Known issue -> multiple open/close when one is only needed (exemple: erase_section), will be fix in the future, but not now 
 
 namespace Filesystem {
     // ULL because if you want Go/GB, then you need ULL to prevent interger overflow 
@@ -36,6 +37,16 @@ namespace Filesystem {
         }
         return false;
     }
+    bool has_directory(const std::filesystem::path& dir_path) {
+        if (!directory_exist(dir_path))
+            return false;
+
+        for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
+            if (entry.is_directory())
+                return true;
+        }
+        return false;
+    }
     MetaData get_metadata(const std::filesystem::path& path) {
         if (!std::filesystem::exists(path)) {
             std::println("[-] get_metadata, path doesn't exists ({})", path.string());
@@ -49,7 +60,7 @@ namespace Filesystem {
     }
 
     bool read_file(const std::filesystem::path& file_path, std::vector<uint8_t>& result, size_t offset, size_t offset_end) {
-        std::error_code error_code;
+        std::error_code error_code; // fuck exception
         size_t file_size = std::filesystem::file_size(file_path, error_code);
         if (error_code) {
             std::println("[-] read_file, ({}) File doesn't exist", file_path.string());
@@ -76,7 +87,7 @@ namespace Filesystem {
         return read_file(file_path, std::span<uint8_t>(result), offset, offset_end);
     }
     bool read_file(const std::filesystem::path& file_path, std::span<uint8_t> out, size_t offset, size_t offset_end) {
-        std::error_code error_code;
+        std::error_code error_code; // fuck exception
         size_t file_size = std::filesystem::file_size(file_path, error_code);
         if (error_code) {
             std::println("[-] read_file, ({}) File doesn't exist", file_path.string());
@@ -173,7 +184,7 @@ namespace Filesystem {
     }    
 
     bool write_file(const std::filesystem::path& file_path, std::span<const uint8_t> data_to_write, size_t offset) {
-        std::error_code error_code;
+        std::error_code error_code; // fuck exception
         size_t file_size = std::filesystem::file_size(file_path, error_code);
         if (error_code) {
             std::println("[-] write_file, ({}) File doesn't exist", file_path.string());
@@ -243,62 +254,6 @@ namespace Filesystem {
         return (written == (ssize_t)bytes_to_write);
 #endif
     }
-
-    bool erase_section(const std::filesystem::path& file_path, size_t offset, size_t offset_end) {
-        std::error_code error_code;
-        size_t file_size = std::filesystem::file_size(file_path, error_code);
-        if (error_code) {
-            std::println("[-] erase_section, ({}) File doesn't exist", file_path.string());
-            return false;
-        }
-
-        offset_end = offset_end == 0 ? file_size : offset_end;
-
-        if (offset >= file_size) {
-            std::println("[-] erase_section, offset ({}) >= file_size ({})", offset, file_size);
-            return false;
-        }
-        if (offset_end > file_size) {
-            std::println("[-] erase_section, offset_end ({}) > file_size ({})", offset_end, file_size);
-            return false;
-        }
-        if (offset > offset_end) {
-            std::println("[-] erase_section, offset ({}) > offset_end ({})", offset, offset_end);
-            return false;
-        }
-
-        // moving data
-        if (offset_end != file_size) {
-            std::vector<uint8_t> temp_data(READ_CHUNK * 8, 0);
-            size_t read_offset = offset_end;
-            size_t write_offset = offset;
-
-            size_t remaining = file_size - offset_end;
-            while (remaining > 0) {
-                size_t chunk = std::min(remaining, READ_CHUNK * 8);
-
-                if (!read_file(file_path, std::span<uint8_t>(temp_data.data(), chunk), read_offset, read_offset + chunk)) {
-                    std::println("[-] erase_section, read_file failed");
-                    return false;
-                }
-                if (!write_file(file_path, std::span<uint8_t>(temp_data.data(), chunk), write_offset)) {
-                    std::println("[-] erase_section, write_file failed");
-                    return false;
-                }
-
-                read_offset += chunk;
-                write_offset += chunk;
-                remaining -= chunk;
-            }
-        }
-
-
-        // truncate
-        size_t new_size = file_size - offset_end + offset;
-
-        return Filesystem::resize_file(file_path, new_size); // ? Why does it need the Filesystem:: 
-    }
-
     bool resize_file(const std::filesystem::path& file_path, size_t size) {
 #ifdef _WIN32
         HANDLE hFile = CreateFileW(
@@ -341,5 +296,280 @@ namespace Filesystem {
         close(fd);
         return true;
 #endif
+    }
+
+    bool erase_section(const std::filesystem::path& file_path, size_t offset, size_t offset_end) {
+        std::error_code error_code; // fuck exception
+        size_t file_size = std::filesystem::file_size(file_path, error_code);
+        if (error_code) {
+            std::println("[-] erase_section, ({}) File doesn't exist", file_path.string());
+            return false;
+        }
+
+        offset_end = offset_end == 0 ? file_size : offset_end;
+
+        if (offset >= file_size) {
+            std::println("[-] erase_section, offset ({}) >= file_size ({})", offset, file_size);
+            return false;
+        }
+        if (offset_end > file_size) {
+            std::println("[-] erase_section, offset_end ({}) > file_size ({})", offset_end, file_size);
+            return false;
+        }
+        if (offset > offset_end) {
+            std::println("[-] erase_section, offset ({}) > offset_end ({})", offset, offset_end);
+            return false;
+        }
+
+        // moving data
+        if (offset_end != file_size) {
+            std::vector<uint8_t> temp_data(READ_CHUNK * 8, 0); // On heap
+            size_t read_offset = offset_end;
+            size_t write_offset = offset;
+
+            size_t remaining = file_size - offset_end;
+            while (remaining > 0) {
+                size_t chunk = std::min(remaining, READ_CHUNK * 8);
+
+                if (!read_file(file_path, std::span<uint8_t>(temp_data.data(), chunk), read_offset, read_offset + chunk)) {
+                    std::println("[-] erase_section, read_file failed");
+                    return false;
+                }
+                if (!write_file(file_path, std::span<uint8_t>(temp_data.data(), chunk), write_offset)) {
+                    std::println("[-] erase_section, write_file failed");
+                    return false;
+                }
+
+                read_offset += chunk;
+                write_offset += chunk;
+                remaining -= chunk;
+            }
+        }
+
+
+        // truncate
+        size_t new_size = file_size - offset_end + offset;
+
+        return Filesystem::resize_file(file_path, new_size); // ? Why does it need the Filesystem:: 
+    }
+
+
+    bool write_append(const std::filesystem::path& file_path, std::span<const uint8_t> data_to_write) {
+        std::error_code error_code; // fuck exception
+        size_t file_size = std::filesystem::file_size(file_path, error_code);
+        if (error_code) {
+            std::println("[-] append_file, ({}) File doesn't exist", file_path.string());
+            return false;
+        }
+        
+        return write_file(file_path, data_to_write, file_size);
+    }
+
+    bool write_insert(const std::filesystem::path& file_path, std::span<const uint8_t> data_to_write, size_t offset) {
+        std::error_code error_code; // fuck exception
+        size_t file_size = std::filesystem::file_size(file_path, error_code);
+        if (error_code) {
+            std::println("[-] write_insert, ({}) File doesn't exist", file_path.string());
+            return false;
+        }
+
+        if (offset > file_size) {
+            std::println("[-] write_insert, offset ({}) > file_size ({})", offset, file_size);
+            return false;
+        }
+
+        size_t insert_size = data_to_write.size();
+
+        std::vector<uint8_t> temp_data(READ_CHUNK * 8);
+        size_t remaining = file_size - offset;
+        size_t move_offset = file_size;
+
+        while (remaining > 0) {
+            size_t chunk = std::min(remaining, READ_CHUNK * 8);
+            move_offset -= chunk;
+            remaining -= chunk;
+
+            if (!read_file(file_path, std::span<uint8_t>(temp_data.data(), chunk), move_offset, move_offset + chunk)) {
+                std::println("[-] write_insert, read_file failed");
+                return false;
+            }
+            if (!write_file(file_path, std::span<const uint8_t>(temp_data.data(), chunk), move_offset + insert_size)) {
+                std::println("[-] write_insert, write_file failed");
+                return false;
+            }
+        }
+
+        if (!write_file(file_path, data_to_write, offset)) {
+            std::println("[-] write_insert, write_file final failed");
+            return false;
+        }
+
+        return true;
+    }
+
+    bool create_file(const std::filesystem::path& file_path) {
+        if (!directory_exist(file_path.parent_path())) {
+            std::println("[-] create_file, ({}) Directory doesn't exist", file_path.parent_path().string());
+            return false;
+        }
+        if (std::filesystem::exists(file_path)) {
+            std::println("[-] create_file, \"{}\" already exist", file_path.string());
+            return false;
+        }
+#ifdef _WIN32
+        HANDLE hFile = CreateFileW(
+            file_path.c_str(),
+            GENERIC_WRITE,
+            0,
+            nullptr,
+            CREATE_NEW,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr
+        );
+        if (hFile == INVALID_HANDLE_VALUE) {
+            std::println("[!] read_file, CreateFileW failed");
+            return false;
+        }
+        CloseHandle(hFile);
+        return true;
+#else
+        int fd = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        if (fd == -1) {
+            return false;
+        }
+        close(fd);
+        return true;
+#endif
+    }
+    bool rename_file(const std::filesystem::path& file_path, std::string_view file_name) {
+        if (!file_exist(file_path)) {
+            std::println("[-] rename_file, \"{}\" doesn't exist or isn't a file", file_path.string());
+            return false;
+        }
+        std::filesystem::path dst = file_path.parent_path() / file_name;
+        if (std::filesystem::exists(dst)) {
+            std::println("[-] rename_file, \"{}\" already exist", dst.string());
+            return false;
+        }
+        std::error_code error_code;
+        std::filesystem::rename(file_path, dst, error_code);
+        if (error_code) {
+            std::println("[-] rename_file, rename failed");
+            return false;
+        }
+
+        return true;
+    }
+    bool delete_file(const std::filesystem::path& file_path) {
+        if (!std::filesystem::is_regular_file(file_path)) {
+            return false;
+        }
+
+        std::error_code error_code; // fuck exception
+        std::filesystem::remove(file_path, error_code);
+        if (error_code) {
+            std::println("[-] delete_file, remove failed");
+            return false;
+        }
+        return true;
+    }
+    bool copy_file(const std::filesystem::path& file_path, const std::filesystem::path& dir_path) {
+        std::filesystem::path dst = dir_path / file_path.filename();
+        if (!std::filesystem::is_regular_file(file_path)) {
+            std::println("[-] copy_file, \"{}\" doesn't exist or isn't a file", file_path.string());
+            return false;
+        }
+        if (!directory_exist(dir_path)) {
+            std::println("[-] copy_file, ({}) Directory doesn't exist", dir_path.string());
+            return false;
+        }
+
+        std::error_code error_code; // fuck exception
+        std::filesystem::copy_file(file_path, dst, std::filesystem::copy_options::none, error_code);    // failed if already existing
+        if (error_code) {
+            std::println("[-] copy_file, copy_file failed");
+            return false;
+        }
+        return true;
+    }
+    bool copy_file_overwrite(const std::filesystem::path& file_path, const std::filesystem::path& dir_path) {
+        std::filesystem::path dst = dir_path / file_path.filename();
+        if (!std::filesystem::is_regular_file(file_path)) {
+            std::println("[-] copy_file_overwrite, \"{}\" doesn't exist or isn't a file", file_path.string());
+            return false;
+        }
+        if (!directory_exist(dir_path)) {
+            std::println("[-] copy_file_overwrite, ({}) Directory doesn't exist", dir_path.string());
+            return false;
+        }
+        
+        std::error_code error_code; // fuck exception
+        std::filesystem::copy_file(file_path, dst, std::filesystem::copy_options::overwrite_existing, error_code);
+        if (error_code) {
+            std::println("[-] copy_file_overwrite, copy_file failed");
+            return false;
+        }
+        return true;
+    }
+    bool move_file(const std::filesystem::path& file_path, const std::filesystem::path& dir_path) {
+        std::filesystem::path dst = dir_path / file_path.filename();
+
+        if (!file_exist(file_path)) {
+            std::println("[-] move_file, \"{}\" doesn't exist", file_path.string());
+            return false;
+        }
+        if (file_exist(dst)) {
+            std::println("[-] move_file, \"{}\" already exist", dst.string());
+            return false;
+        }
+        if (!directory_exist(dir_path)) {
+            std::println("[-] move_file, ({}) Directory doesn't exist", dir_path.string());
+            return false;
+        }
+
+        std::error_code error_code; // fuck exception
+        std::filesystem::rename(file_path, dst, error_code);
+        if (error_code) {
+            std::println("[-] move_file, rename failed");
+            return false;
+        }
+        return true;
+    }
+    bool create_directory(const std::filesystem::path& dir_path) {
+        if (!directory_exist(dir_path.parent_path())) {
+            std::println("[-] create_directory, ({}) Directory doesn't exist", dir_path.parent_path().string());
+            return false;
+        }
+        if (directory_exist(dir_path)) {
+            std::println("[-] create_directory, ({}) Directory already exist", dir_path.string());
+            return false;
+        }
+
+        std::error_code error_code; // fuck exception
+        std::filesystem::create_directory(dir_path, error_code);
+        if (error_code) {
+            std::println("[-] create_directory, create_directory failed");
+            return false;
+        }
+        return true;
+    }
+    bool delete_directory(const std::filesystem::path& dir_path) {
+        if (has_file(dir_path)) {
+            std::println("[-] delete_directory, ({}) Directory have a file in it", dir_path.parent_path().string());
+            return false;
+        }
+        if (has_directory(dir_path)) {
+            std::println("[-] delete_directory, ({}) Directory have a directory in it", dir_path.parent_path().string());
+            return false;
+        }
+        else {
+            std::error_code error_code; // fuck exception
+            std::filesystem::remove(dir_path, error_code);
+            if (error_code) {
+                std::println("[-] delete_directory, remove failed");
+                return false;
+            }
+            return true;
+        }
     }
 };
