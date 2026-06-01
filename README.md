@@ -3,9 +3,12 @@ coreLib for multi-purpose use
 
 
 # Benchmark
-> Made poorly on a Intel i5-11300H boosted to 4.0 GHz | Single thread
+> Single-thread | Intel i5-11300H @ 4.0 GHz | MSVC /O2
+> Comparison: OpenSSL 4.0.0 AES-256-ECB ~9.68 GB/s (AES-NI, no VAES)
 
-- `ECB_AES<256>` **18 Go/s** (GB/s) for +8192 bytes buffer
-- `ECB_AES<128>` **25 Go/s** (GB/s) for +8192 bytes buffer
-- `ECB_AES<256>` 17 Go/s (GB/s) for 2048 bytes buffer
-- `ECB_AES<128>` 24 Go/s (GB/s) for 2048 bytes buffer
+| Variant        | Buffer   | Throughput |
+|----------------|----------|------------|
+| ECB_AES<256>   | >8192 B  | 18 GB/s    |
+| ECB_AES<128>   | >8192 B  | 25 GB/s    |
+| ECB_AES<256>   | 2048 B   | 17 GB/s    |
+| ECB_AES<128>   | 2048 B   | 24 GB/s    |
