@@ -3,7 +3,7 @@ coreLib for multi-purpose use
 
 
 # Benchmark
-> Single-thread | Intel i5-11300H @ 4.0 GHz | MSVC /O2
+> Single-thread | Intel i5-11300H @ 4.0GHz (3.0 GHz base frequence) | MSVC /O2
 > Comparison: OpenSSL 4.0.0 AES-256-ECB ~9.68 GB/s (AES-NI, no VAES)
 
 | Variant        | Buffer   | Throughput |
