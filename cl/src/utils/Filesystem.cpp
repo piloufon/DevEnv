@@ -7,8 +7,6 @@
 #include <Windows.h>
 #endif
 
-// TODO : Known issue -> multiple open/close when one is only needed (exemple: erase_section), will be fix in the future, but not now 
-
 namespace Filesystem {
     // ULL because if you want Go/GB, then you need ULL to prevent interger overflow 
     // The higher the "quicker" but the ceilling is already reached at around 32/64, why not UINT32_MAX because of the copy in the kernel so that the RAM consumption is lower (but more page fault)
