@@ -3,16 +3,15 @@
 
 class CryptoRandom {
 public:
-    static void fill(std::span<uint8_t> buffer);
+    
+    static size_t fill(std::span<uint8_t> buffer);
+    static const char* get_error_message(size_t err);
 
     template<typename T>
         requires (std::is_arithmetic_v<T>)
     static T generate() {
-        T value;
-        fill(std::span<uint8_t>(
-            reinterpret_cast<uint8_t*>(&value),
-            sizeof(T)
-        ));
+        T value = 0;
+        fill(std::span<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(T)));
         return value;
     }
 };
