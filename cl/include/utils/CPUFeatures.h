@@ -8,7 +8,10 @@ public:
 
     static bool has_aes_ni() { return m_cpu.aes_ni; }
     static bool has_vaes() { return m_cpu.vaes; }
+    static bool has_vaes512() { return m_cpu.vaes512; }
     static bool has_pclmul() { return m_cpu.pclmul; }
+    static bool has_vpclmul256() { return m_cpu.vpclmul; }
+    static bool has_vpclmul512() { return m_cpu.vpclmul512; }
 
     static bool has_sse() { return m_cpu.sse; }
     static bool has_sse2() { return m_cpu.sse2; }
@@ -29,6 +32,8 @@ private:
 
         bool aes_ni = false;
         bool pclmul = false;
+        bool vpclmul = false;
+        bool vpclmul512 = false;
 
         bool sse = false;
         bool sse2 = false;
@@ -42,6 +47,7 @@ private:
         bool avx512bw = false;
         bool avx512dq = false;
         bool vaes = false;
+        bool vaes512 = false;
     };
 
     static CPU detect();

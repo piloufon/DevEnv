@@ -4,6 +4,7 @@
 #include <vector>
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <Windows.h>
 #define ClearMem(x, y) RtlSecureZeroMemory(x, y)
 #elif defined(__linux__)
@@ -30,7 +31,7 @@ public:
     SafeArray(const SafeArray<N>& other) noexcept {
         this->m_bytes = other.m_bytes;
     }
-    SafeArray(const std::vector<uint8_t>& bytes) {
+    [[deprecated]] SafeArray(const std::vector<uint8_t>& bytes) { // TODO: Erase that piece of shit that can throw
         if (bytes.size() != N)
             throw "SafeArray: wrong size dumbass";
         set(std::span<const uint8_t, N>(bytes.data(), N));
@@ -40,6 +41,14 @@ public:
     void clear() noexcept { ClearMem(m_bytes.data(), m_bytes.size()); }
     uint8_t& operator[](size_t i) noexcept { return m_bytes[i]; }
     const uint8_t& operator[](size_t i) const noexcept { return m_bytes[i]; }
+    
+    operator std::span<uint8_t, N>() {
+        return std::span<uint8_t, N>(m_bytes);
+    }
+    operator std::span<const uint8_t, N>() const {
+        return std::span<const uint8_t, N>(m_bytes);
+    }
+
 
     void set(std::span<const uint8_t, N> bytes) noexcept { std::copy(bytes.begin(), bytes.end(), m_bytes.begin()); }
     void set(const std::array<uint8_t, N>& bytes) noexcept { m_bytes = bytes; }

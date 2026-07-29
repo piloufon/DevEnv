@@ -13,7 +13,7 @@ namespace Filesystem {
 	MetaData get_metadata(const std::filesystem::path& path);
 
 	bool read_file(const std::filesystem::path& file_path, std::vector<uint8_t>& result, size_t offset = 0, size_t offset_end = 0);
-	bool read_file(const std::filesystem::path&, std::span<uint8_t> out, size_t offset = 0, size_t offset_end = 0); // Pre-allocated buffer
+	bool read_file(const std::filesystem::path& file_path, std::span<uint8_t> out, size_t offset = 0, size_t offset_end = 0); // Pre-allocated buffer
 
 	bool write_file(const std::filesystem::path& file_path, std::span<const uint8_t> data_to_write, size_t offset);
 	bool resize_file(const std::filesystem::path& file_path, size_t size);
