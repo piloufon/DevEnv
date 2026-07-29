@@ -1,48 +1,42 @@
 # DevEnv
-coreLib for multi-purpose use
+
+**coreLib for multi-purpose use** — a C++ core library with low-level system utilities and cryptography
+
+## Contents
+- [Benchmarks](#benchmarks)
+  - [ECB_AES\<128\>](#ecb_aes128)
+- [License](#license)
+
+## Benchmarks
+
+> Single-thread | Intel i5-11300H @ 4.0 GHz turbo (3.0 GHz base) | Clang `/O2`
+
+### ECB_AES\<128\>
+
+| Plaintext size | Mean time  | Debit        |
+|----------------:|-----------:|-------------:|
+| 16 B            | 9.30 ns    | 1.60 GiB/s   |
+| 256 B           | 14.7 ns    | 16.67 GiB/s  |
+| 4 KB            | 156 ns     | 24.48 GiB/s  |
+| 64 KB           | 2.44 µs    | 25.10 GiB/s  |
+| 1 MB            | 38.96 µs   | 25.18 GiB/s  |
+| 32 MB           | 3.34 ms    | 9.44 GiB/s   |
+
+<details>
+<summary>Full statistics (time/CPU mean ± stddev, throughput, cv)</summary>
+
+| Plaintext size | Time (mean ± stddev)   | CPU (mean ± stddev)    | Throughput (mean ± stddev) | cv      |
+|----------------:|------------------------:|------------------------:|----------------------------:|--------:|
+| 16 B            | 9.30 ns ± 0.201 ns      | 9.29 ns ± 0.202 ns      | 1.604 GiB/s ± 35.53 MiB/s   | 2.16 %  |
+| 256 B           | 14.7 ns ± 2.88 ns       | 14.6 ns ± 2.75 ns       | 16.67 GiB/s ± 2.207 GiB/s   | 19.58 % |
+| 4 KB            | 156 ns ± 2.80 ns        | 156 ns ± 3.69 ns        | 24.48 GiB/s ± 578.6 MiB/s   | 1.80 %  |
+| 64 KB           | 2441 ns ± 29.9 ns       | 2433 ns ± 53.9 ns       | 25.10 GiB/s ± 568.7 MiB/s   | 1.22 %  |
+| 1 MB            | 38963 ns ± 417 ns       | 38801 ns ± 741 ns       | 25.18 GiB/s ± 492.7 MiB/s   | 1.07 %  |
+| 32 MB           | 3343656 ns ± 106948 ns  | 3315728 ns ± 128462 ns  | 9.437 GiB/s ± 362.2 MiB/s   | 3.20 %  |
+
+</details>
 
 
-# Benchmark
-> Single-thread | Intel i5-11300H @ 4.0GHz (3.0 GHz base frequence) | MSVC /O2
+## License
 
-Run on(8 X 3110 MHz CPU s)
-CPU Caches :
-L1 Data 48 KiB(x4)
-L1 Instruction 32 KiB(x4)
-L2 Unified 1280 KiB(x4)
-L3 Unified 8192 KiB(x1)
-
-
-Run on(8 X 3110 MHz CPU s)
-CPU Caches :
-L1 Data 48 KiB(x4)
-L1 Instruction 32 KiB(x4)
-L2 Unified 1280 KiB(x4)
-L3 Unified 8192 KiB(x1)
-
-| Benchmark | Time | CPU | Iterations
-| -----------|------|----|---------------------------------------------------------------------|
-| ECB_AES_128_Encrypt 16_mean | 9.30 ns | 9.29 ns | bytes_per_second = 1.60385Gi / s|
-| ECB_AES_128_Encrypt 16_median | 9.26 ns | 9.24 ns | bytes_per_second = 1.61225Gi / s|
-| ECB_AES_128_Encrypt 16_stddev | 0.201 ns | 0.202 ns | bytes_per_second = 35.5318Mi / s|
-| ECB_AES_128_Encrypt 16_cv | 2.16 % | 2.18 % | bytes_per_second = 2.16 % |
-| ECB_AES_128_Encrypt 256_mean | 14.7 ns | 14.6 ns | bytes_per_second = 16.6705Gi / s|
-| ECB_AES_128_Encrypt 256_median | 13.7 ns | 13.7 ns | bytes_per_second = 17.4632Gi / s|
-| ECB_AES_128_Encrypt 256_stddev | 2.88 ns | 2.75 ns | bytes_per_second = 2.20738Gi / s|
-| ECB_AES_128_Encrypt 256_cv | 19.58 % | 18.80 % | bytes_per_second = 13.24 % |
-| ECB_AES_128_Encrypt 4096_mean | 156 ns | 156 ns | bytes_per_second = 24.4807Gi / s|
-| ECB_AES_128_Encrypt 4096_median | 155 ns | 153 ns | bytes_per_second = 24.858Gi / s|
-| ECB_AES_128_Encrypt 4096_stddev | 2.80 ns | 3.69 ns | bytes_per_second = 578.551Mi / s|
-| ECB_AES_128_Encrypt 4096_cv | 1.80 % | 2.37 % | bytes_per_second = 2.31 % |
-| ECB_AES_128_Encrypt 65536_mean | 2441 ns | 2433 ns | bytes_per_second = 25.0971Gi / s|
-| ECB_AES_128_Encrypt 65536_median | 2431 ns | 2427 ns | bytes_per_second = 25.147Gi / s|
-| ECB_AES_128_Encrypt 65536_stddev | 29.9 ns | 53.9 ns | bytes_per_second = 568.748Mi / s|
-| ECB_AES_128_Encrypt 65536_cv | 1.22 % | 2.22 % | bytes_per_second = 2.21 % |
-| ECB_AES_128_Encrypt 1048576_mean | 38963 ns | 38801 ns | bytes_per_second = 25.1768Gi / s|
-| ECB_AES_128_Encrypt 1048576_median | 38823 ns | 38801 ns | bytes_per_second = 25.1717Gi / s|
-| ECB_AES_128_Encrypt 1048576_stddev | 417 ns | 741 ns | bytes_per_second = 492.72Mi / s|
-| ECB_AES_128_Encrypt 1048576_cv | 1.07 % | 1.91 % | bytes_per_second = 1.91 % |
-| ECB_AES_128_Encrypt 33554432_mean | 3343656 ns | 3315728 ns | bytes_per_second = 9.4371Gi / s|
-| ECB_AES_128_Encrypt 33554432_median | 3316370 ns | 3301056 ns | bytes_per_second = 9.46667Gi / s|
-| ECB_AES_128_Encrypt 33554432_stddev | 106948 ns | 128462 ns | bytes_per_second = 362.173Mi / s|
-| ECB_AES_128_Encrypt 33554432_cv | 3.20 % | 3.87 % | bytes_per_second = 3.75 % |
+**All right reserved**
