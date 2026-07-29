@@ -15,24 +15,26 @@
 
 | Plaintext size | Mean time  | Debit        |
 |----------------:|-----------:|-------------:|
-| 16 B            | 9.30 ns    | 1.60 GiB/s   |
-| 256 B           | 14.7 ns    | 16.67 GiB/s  |
-| 4 KB            | 156 ns     | 24.48 GiB/s  |
-| 64 KB           | 2.44 µs    | 25.10 GiB/s  |
-| 1 MB            | 38.96 µs   | 25.18 GiB/s  |
-| 32 MB           | 3.34 ms    | 9.44 GiB/s   |
+| 16 B            | 9.32 ns    | 1.60 GiB/s   |
+| 256 B           | 13.4 ns    | 17.82 GiB/s  |
+| 4 KB            | 155 ns     | 24.64 GiB/s  |
+| 64 KB           | 2.45 µs    | 25.06 GiB/s  |
+| 1 MB            | 39.35 µs   | 24.96 GiB/s  |
+| 32 MB           | 3.20 ms    | 9.83 GiB/s   |
 
 <details>
 <summary>Full statistics (time/CPU mean ± stddev, throughput, cv)</summary>
 
-| Plaintext size | Time (mean ± stddev)   | CPU (mean ± stddev)    | Throughput (mean ± stddev) | cv      |
-|----------------:|------------------------:|------------------------:|----------------------------:|--------:|
-| 16 B            | 9.30 ns ± 0.201 ns      | 9.29 ns ± 0.202 ns      | 1.604 GiB/s ± 35.53 MiB/s   | 2.16 %  |
-| 256 B           | 14.7 ns ± 2.88 ns       | 14.6 ns ± 2.75 ns       | 16.67 GiB/s ± 2.207 GiB/s   | 19.58 % |
-| 4 KB            | 156 ns ± 2.80 ns        | 156 ns ± 3.69 ns        | 24.48 GiB/s ± 578.6 MiB/s   | 1.80 %  |
-| 64 KB           | 2441 ns ± 29.9 ns       | 2433 ns ± 53.9 ns       | 25.10 GiB/s ± 568.7 MiB/s   | 1.22 %  |
-| 1 MB            | 38963 ns ± 417 ns       | 38801 ns ± 741 ns       | 25.18 GiB/s ± 492.7 MiB/s   | 1.07 %  |
-| 32 MB           | 3343656 ns ± 106948 ns  | 3315728 ns ± 128462 ns  | 9.437 GiB/s ± 362.2 MiB/s   | 3.20 %  |
+> Google Benchmark with 35 iterations and a crappy warm up
+
+| Plaintext size | Time (mean ± stddev)    | CPU (mean ± stddev)     | Throughput (mean ± stddev) | cv     |
+|----------------:|-------------------------:|-------------------------:|----------------------------:|-------:|
+| 16 B            | 9.32 ns ± 0.318 ns       | 9.30 ns ± 0.342 ns       | 1.605 GiB/s ± 56.79 MiB/s   | 3.46 % |
+| 256 B           | 13.4 ns ± 0.389 ns       | 13.4 ns ± 0.430 ns       | 17.82 GiB/s ± 538.7 MiB/s   | 2.95 % |
+| 4 KB            | 155 ns ± 1.84 ns         | 155 ns ± 2.42 ns         | 24.64 GiB/s ± 392.7 MiB/s   | 1.56 % |
+| 64 KB           | 2448 ns ± 42.2 ns        | 2436 ns ± 54.3 ns        | 25.06 GiB/s ± 561.7 MiB/s   | 2.19 % |
+| 1 MB            | 39354 ns ± 856 ns        | 39137 ns ± 891 ns        | 24.96 GiB/s ± 574.0 MiB/s   | 2.25 % |
+| 32 MB           | 3202660 ns ± 183707 ns   | 3187877 ns ± 178221 ns   | 9.829 GiB/s ± 496.1 MiB/s   | 4.93 % |
 
 </details>
 
