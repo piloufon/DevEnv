@@ -9,7 +9,7 @@
    - [Key setup & H-powers precomputation](#key-setup--h-powers-precomputation)
    - [gf_multiply_clmul](#gf_multiply_clmul)
      - [Karatsuba](#karatsuba)
-     - [×x offset](#x-offset)
+     - [Shift one bit](#shift-one-bit)
      - [Reduction](#reduction)
    - [Batched multiplication (gf_multiply_batch4_clmul)](#batched-multiplication)
    - [Main encrypt/decrypt loop](#main-encryptdecrypt-loop)
