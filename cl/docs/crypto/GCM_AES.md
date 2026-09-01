@@ -57,9 +57,10 @@ As said before, **NEVER** reuse a pair of key/nonce, never really. Before starti
 the counter block is strictly 16 bytes. The first counter block is the *pre-counter block* written **J0**. GCM can accept IV/nonce of a size in [1, 2<sup>61</sup> - 1] (extremas includes) in bytes, but if the nonce
 size is equal to 12 bytes (96 bits), that is directly copied to the first bytes in J0, otherwise, you need to use the GHASH algorithm as a way to derive your nonce/IV to get the J0 to get 16 bytes (yes I know not
 12 bytes). The recommanded nonce/IV is 12 bytes as it is easier for compatibility across multiple implementation, but for maximum safety, it is better to use 16 bytes nonce/IV (as GHASH is a "linear" function and
-has no collision possible (so no reuse possible) except if your H is null) but never go higher than 16 bytes as you loose all protection against collision. Also it is really recommanded (lots of recommandation I know)
-to never use nonce/IV of a size lower than 12 bytes (you shouldn't it's dangerous and it may even start to be forbidden in the futur but not as of today). Also never use randomness to fill your nonce, as you probably
-know about the birthday paradox (depending on your use case, it may differ, but in general you should have 64 bits of randomness and 32 bits of incrementing for each message)
+has no collision possible (so no reuse possible) except if your H is null. And yes GHASH isn't linear it is polynomial but you always have a different result for 128 differents bits) but never go higher than 16 bytes
+as you loose all protection against collision. Also it is really recommanded (lots of recommandation I know) to never use nonce/IV of a size lower than 12 bytes (you shouldn't it's dangerous and it may even start to
+be forbidden in the futur but not as of today). Also never use randomness to fill your nonce, as you probably know about the birthday paradox (depending on your use case, it may differ, but in general you should have
+64 bits of randomness and 32 bits of incrementing for each message)
 
 ### Tag
 The tag is a 16 bytes number that is created with each messages. The tag take into account the AAD, the IV and the CT (*Ciphertext*), and the Key. It is made so that you can always know before deciphering if the tag match
@@ -226,7 +227,7 @@ pxor %%xmm5, %%xmm2
 
 Now that we are here we have a 255 bits (256 - 1) of information, but remember, we cannot have more than 128 bits of informations, so we need to start the reduction process, but before that we need
 to offset by one bit (remember, the bit-reflecting conventions). The issue here is that there is no operations that let you shift by one bit a whole register, you need a 13 instructions steps (all that for
-a simple bit shift lmao and it's the most conceptualy difficult part of the whole implementation).
+a simple bit shift lmao and it's the most conceptualy difficult part of the whole implementation, but don't worry the reduction is the same concept, just worst to picture).
 
 <details>
 <summary> Operation needed </summary>
@@ -247,7 +248,7 @@ You need to have a carry of the lost bits for the shift, so you need to save tho
 jump from one register to another (in xmm7), then offset them by 4 bytes, then add them back with a or/xor
 ```
 movdqa %%xmm2, %%xmm4
-psrld $31, %%xmm4       // discard everything exept the 4 rightest bits (x^31, x^63, x^95, x^127) on the left side (x^0, x^32, x^64, x^96)
+psrld $31, %%xmm4       // discard everything except the 4 rightest bits (x^31, x^63, x^95, x^127) on the left side (x^0, x^32, x^64, x^96)
 movdqa %%xmm3, %%xmm5
 psrld $31, %%xmm5       // same but for xmm3
 pslld $1, %%xmm2        // the destructive shift that looses the bits that we just stored before
@@ -261,7 +262,40 @@ por %%xmm4, %%xmm2      // here we use por but pxor would work just fine because
 por %%xmm5, %%xmm3
 por %%xmm7, %%xmm3
 ```
-TODO : finish
+
+But all those shenanigans over bit shifting aren't finished. The reduction process needs in fact 2 reductions, the first one is for the 255-128 bits (that will largely overflow inside the 127-0
+bits also). 
+<details>
+<summary> Why xmm2 here is suddenly the high part (255-128) when it was the low part (127-0) before </summary>
+
+>Also you may ask "but why doing that to xmm2 and not xmm3 that is the high part of the number (and use it as the x<sup>128</sup> then offset to get x<sup>0</sup>, x<sup>1</sup>, x<sup>2</sup>,
+>x<sup>7</sup>)", but remember, we shift by one bit and act like the whole number has been reflected (true thanks to the fact the reduction "correct" the reflecting), so now xmm2 act as the high
+>part of the number (it's not the 1 bit shift that reflected our number, but we have started by assuming it is already reflected, so when we were with pclmul we were "normal", but now that we have
+>enter the realm of "pure" GHASH and reflection, we take everything as already relfected)
+</details>
+
+To achieve reduction, we do mulitple shift to store a combination of the shifted xmm2, so that in the position x<sup>31</sup> (so x<sup>31 + i * 32</sup>) of each lane we have the x<sup>0</sup>,
+x<sup>1</sup>, x<sup>6</sup> (of each lane also so each x<sup>0|1|6 + i  * 32</sup>). Thoses bits correspond to the x<sup>1</sup>, x<sup>2</sup> and x<sup>7</sup> bits. That way, we can do the
+reduction of the high part (but it will overflow in the low part and that is stored in xmm5 or later) and we won't need to have modulo operations that are way slower, we just need to do that
+operations one more time.
+```
+movdqa %%xmm2, %%xmm4
+pslld $31, %%xmm4       // extract the x^0 bit in the 4 lanes/integers (so x^0, x^32, x^64, x^96)
+movdqa %%xmm2, %%xmm5
+pslld $30, %%xmm5       // extract the x^0, x^1 (in each integers so x^0, x^1, x^32, x^33, ...)
+movdqa %%xmm2, %%xmm6
+pslld $25, %%xmm6       // extract the x^0, x^1, ..., x^6 (in each integers you get it)
+pxor %%xmm5, %%xmm4     // store the result of the bits saved in xmm4
+pxor %%xmm6, %%xmm4     // same
+
+movdqa %%xmm4, %%xmm5
+psrldq $4, %%xmm5       // Store the lanes/integers 0, 1 and 2 for the low part (127-0) of the 255 bits numbers (the first lane is 32 bits of 0)
+pslldq $12, %%xmm4      // Store the lane/integer 3 for the high part (the 3 last lanes are filled with 0)
+pxor %%xmm4, %%xmm2     // Apply the first reduction inside the high (255-128)
+```
+
+Now why are we xoring only one integer in the high part, is it an abritrary value, no of course, because here we have (inside the 255-128, keep that in mind) the 127 to 0 bits, so because we have x<sup>0|1|6</sup>,
+that account to for the x<sup>127</sup> (and not x<sup>128</sup>), and because there is only one lane/integer inside the high part (255-128) that can be corrected, there you have your first reduction.
 
 
 ## Sources
